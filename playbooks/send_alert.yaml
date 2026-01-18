@@ -1,24 +1,31 @@
 - name: Extract Show Title
   set_fact:
-    # Gets the folder name two levels up from the file
+    # Based on your logs: /mnt/google_rolnas/Genuine_Drive/Landman/Season 02/...
+    # dirname 1: /mnt/google_rolnas/Genuine_Drive/Landman/Season 02
+    # dirname 2: /mnt/google_rolnas/Genuine_Drive/Landman
+    # basename: Landman
     show_name: "{{ episode_item.path | dirname | dirname | basename }}"
+
+- name: Debug - Show the Webhook URL (Temporary)
+  debug:
+    msg: "URL is: {{ vault_discord_url }}"
 
 - name: Notify Discord
   uri:
-    url: "{{ discord_webhook_url_diskspace }}"
+    url: "{{ vault_discord_url }}"
     method: POST
     body_format: json
     body:
       content: "New episode for **{{ show_name }}** has been uploaded! Check Genuine Drive!"
     status_code: 204
-  when: discord_url != ""
+  when: vault_discord_url is defined and vault_discord_url != ""
 
 - name: Notify Telegram
   uri:
-    url: "https://api.telegram.org/bot{{ tg_token }}/sendMessage"
+    url: "https://api.telegram.org/bot{{ vault_tg_token }}/sendMessage"
     method: POST
     body_format: json
     body:
-      chat_id: "{{ tg_chat_id }}"
+      chat_id: "{{ vault_tg_chat_id }}"
       text: "New episode for {{ show_name }} has been uploaded! Check Genuine Drive!"
-  when: tg_token != "" and tg_chat_id != ""
+  when: vault_tg_token is defined and vault_tg_token != ""
