@@ -1,24 +1,21 @@
-- name: Extract Show Title
+- name: Extract Metadata
   set_fact:
-    # Based on your logs: /mnt/google_rolnas/Genuine_Drive/Landman/Season 02/...
-    # dirname 1: /mnt/google_rolnas/Genuine_Drive/Landman/Season 02
-    # dirname 2: /mnt/google_rolnas/Genuine_Drive/Landman
-    # basename: Landman
+    # Gets "Landman"
     show_name: "{{ episode_item.path | dirname | dirname | basename }}"
-
-- name: Debug - Show the Webhook URL (Temporary)
-  debug:
-    msg: "URL is: {{ discord_webhook_url_diskspace }}"
+    # Gets "Landman.-.S02E10.-.Tragedy and Flies.WEBDL-1080p.ETHEL.mkv"
+    file_name: "{{ episode_item.path | basename }}"
 
 - name: Notify Discord
   uri:
-    url: "{{ discord_webhook_url_diskspace }}"
+    url: "{{ discord_url }}"
     method: POST
     body_format: json
     body:
-      content: "New episode for **{{ show_name }}** has been uploaded! Check Genuine Drive!"
+      content: |
+        New episode for **{{ show_name }}** has been uploaded! Check Genuine Drive!
+        **File:** `{{ file_name }}`
     status_code: 204
-  when: discord_webhook_url_diskspace is defined and discord_webhook_url_diskspace != ""
+  when: discord_url != ""
 
 - name: Notify Telegram
   uri:
@@ -27,5 +24,8 @@
     body_format: json
     body:
       chat_id: "{{ vault_tg_chat_id }}"
-      text: "New episode for {{ show_name }} has been uploaded! Check Genuine Drive!"
+      parse_mode: "Markdown"
+      text: |
+        New episode for *{{ show_name }}* has been uploaded! Check Genuine Drive!
+        *File:* `{{ file_name }}`
   when: vault_tg_token is defined and vault_tg_token != ""
