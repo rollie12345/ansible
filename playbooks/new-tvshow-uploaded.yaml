@@ -1,55 +1,26 @@
 ---
-- name: Monitor NAS for New TV Episodes
+- name: Notify on new TV episodes
   hosts: localhost
   connection: local
   vars:
     library_path: "/mnt/google_rolnas"
-    # File to store names of episodes we already notified about
-    state_file: "/tmp/notified_episodes.txt"
-    
-    # Notifications (Use Semaphore Environment Variables for these)
+    # Set these in Semaphore Environment
     discord_url: "{{ vault_discord_url | default('') }}"
     tg_token: "{{ vault_tg_token | default('') }}"
     tg_chat_id: "{{ vault_tg_chat_id | default('') }}"
 
   tasks:
-    - name: Ensure state file exists
-      ansible.builtin.file:
-        path: "{{ state_file }}"
-        state: touch
-      register: touch_result
-
-    - name: Read already notified episodes
-      ansible.builtin.slurp:
-        src: "{{ state_file }}"
-      register: notified_raw
-
-    - name: Set notified list fact
-      set_fact:
-        already_notified: "{{ (notified_raw.content | b64decode).splitlines() }}"
-
-    - name: Find video files added in last 48 hours
+    - name: Find episodes added in the last 24 hours
       ansible.builtin.find:
         paths: "{{ library_path }}"
         recurse: yes
-        patterns: ['*.mkv', '*.mp4']
-        age: -48h
-      register: found_files
+        patterns: ['*.mkv', ['*.mp4'], ['*.avi']]
+        age: -24h
+      register: new_files
 
-    - name: Filter for truly new episodes
-      set_fact:
-        new_episodes: "{{ found_files.files | map(attribute='path') | difference(already_notified) }}"
-
-    - name: Send Notifications
-      include_tasks: send_alert.yml
-      loop: "{{ new_episodes }}"
+    - name: Process found episodes
+      include_tasks: send_alert.yaml
+      loop: "{{ new_files.files }}"
       loop_control:
-        loop_var: episode_path
-      when: new_episodes | length > 0
-
-    - name: Update state file with new episodes
-      ansible.builtin.lineinfile:
-        path: "{{ state_file }}"
-        line: "{{ item }}"
-        create: yes
-      loop: "{{ new_episodes }}"
+        loop_var: episode_item
+      when: new_files.matched > 0

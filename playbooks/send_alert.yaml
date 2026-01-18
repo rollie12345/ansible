@@ -1,0 +1,24 @@
+- name: Extract Show Title
+  set_fact:
+    # Gets the folder name two levels up from the file
+    show_name: "{{ episode_item.path | dirname | dirname | basename }}"
+
+- name: Notify Discord
+  uri:
+    url: "{{ discord_webhook_url_diskspace }}"
+    method: POST
+    body_format: json
+    body:
+      content: "New episode for **{{ show_name }}** has been uploaded! Check Genuine Drive!"
+    status_code: 204
+  when: discord_url != ""
+
+- name: Notify Telegram
+  uri:
+    url: "https://api.telegram.org/bot{{ tg_token }}/sendMessage"
+    method: POST
+    body_format: json
+    body:
+      chat_id: "{{ tg_chat_id }}"
+      text: "New episode for {{ show_name }} has been uploaded! Check Genuine Drive!"
+  when: tg_token != "" and tg_chat_id != ""
