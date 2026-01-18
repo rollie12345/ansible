@@ -20,36 +20,23 @@
         label: "{{ item.Names[0] }}"
       ignore_errors: yes
 
-    - name: Map container details
+    - name: Build Report String
       set_fact:
-        # We store the name and a short version of the SHA hash for the report
-        container_report: >-
-          {{
-            container_report | default([]) + [{
-              'name': item.item.Names[0] | regex_replace('^/', ''),
-              'image': item.item.Image,
-              'local_sha': item.image.Id[:12] if item.image.Id is defined else 'Unknown',
-              'remote_sha': item.actions[0].split(' ')[-1][:12] if item.changed and item.actions is defined else 'Up to date',
-              'status': '🔄 UPDATE AVAILABLE' if item.changed else '✅ LATEST'
-            }]
-          }}
-      loop: "{{ pull_results.results }}"
-      loop_control:
-        label: "{{ item.item.Names[0] }}"
+        report_body: |
+          {% for item in pull_results.results %}
+          **{{ item.item.Names[0] | regex_replace('^/', '') }}**
+          `{{ '🔄 Update' if item.changed else '✅ Latest' }}` (L: {{ item.image.Id[:7] if item.image.Id is defined else '???' }} | R: {{ item.actions[0].split(' ')[-1][:7] if item.changed else 'Same' }})
+          {% endfor %}
 
     - name: Send Detailed Discord Report
       community.general.discord:
         webhook_id: "{{ webhook_url.split('/')[-2] }}"
         webhook_token: "{{ webhook_url.split('/')[-1] }}"
         embeds:
-          - title: "🐳 Docker Version Audit"
-            color: "{{ (pull_results.results | selectattr('changed') | list | length > 0) | ternary(15158332, 3066993) }}"
-            description: "Comparing local container layers vs. Remote Registry"
-            fields:
-              - name: "Container Analysis"
-                value: |
-                  {% for c in container_report %}
-                  **{{ c.name }}** ({{ c.image }})
-                  Status: `{{ c.status }}`
-                  Local: `{{ c.local_sha }}` | Remote: `{{ c.remote_sha }}`
-                  {% endfor %}
+          - title: "🐳 Docker Update Audit"
+            color: 3066993
+            description: "{{ report_body }}"
+            footer:
+              text: "Host: {{ inventory_hostname }}"
+      # Only attempt if we actually have a report body to send
+      when: report_body | trim | length > 0
