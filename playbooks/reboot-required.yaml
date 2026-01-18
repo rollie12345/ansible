@@ -36,7 +36,7 @@
       delegate_to: localhost
       become: false
       uri:
-        url: "https://discord.com/api/webhooks/1462362151758073888/6EwDdHGYlkqmJKHUcXVMRUz-P6syHszrGhuINaRYUlpsYrQMit_bYBw5s5qwTndS5XML"
+        url: "https://discord.com/api/webhooks/1462364072518352988/oe0KDyOQJX8aCemHj8q32g-2ASqAgqAGCG02dKM6Go9-PjJ2fUv3cQEur6txcsMZ88kb"
         method: POST
         body_format: json
         status_code: [200, 204]
