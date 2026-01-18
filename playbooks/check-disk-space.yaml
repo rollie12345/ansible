@@ -1,61 +1,33 @@
-- name: Check disk space and write to CSV
+- name: Check disk space and notify Discord
   hosts: all
   become: true
 
   tasks:
-    - name: Check disk space on Linux
-      block:
-        - name: Check if the system is CentOS
-          set_fact:
-            is_centos: "{{ ansible_distribution | lower == 'centos' }}"
-          ignore_errors: true
-        - name: Check if the system is Ubuntu
-          set_fact:
-            is_ubuntu: "{{ ansible_distribution | lower == 'ubuntu' }}"
-          ignore_errors: true
-        - name: Check disk space on CentOS
-          command: df -hT
-          when: is_centos | bool
-          register: centos_disk_space
-        - name: Check disk space on Ubuntu
-          command: df -hT
-          when: is_ubuntu | bool
-          register: ubuntu_disk_space
-        - name: Print disk space on CentOS
-          debug:
-            msg: "{{ centos_disk_space.stdout_lines }}"
-          when: is_centos | bool
-        - name: Print disk space on Ubuntu
-          debug:
-            msg: "{{ ubuntu_disk_space.stdout_lines }}"
-          when: is_ubuntu | bool
-        - name: Write disk space to CSV file on CentOS
-          when: is_centos | bool
-          local_action:
-            module: csv_writer
-            path: "{{ inventory_hostname }}-disk-space.csv"
-            headers: ['Filesystem', 'Type', 'Size', 'Used', 'Available', 'Use%', 'Mounted on']
-            content: "{{ centos_disk_space.stdout_lines[1:] }}"
-        - name: Write disk space to CSV file on Ubuntu
-          when: is_ubuntu | bool
-          local_action:
-            module: csv_writer
-            path: "{{ inventory_hostname }}-disk-space.csv"
-            headers: ['Filesystem', 'Type', 'Size', 'Used', 'Available', 'Use%', 'Mounted on']
-            content: "{{ ubuntu_disk_space.stdout_lines[1:] }}"
-      when: "ansible_os_family == 'RedHat' or ansible_os_family == 'Debian'"
+    # --- LINUX SECTION ---
+    - name: Get Disk Space (Linux)
+      command: df -h --total
+      register: linux_disk_res
+      when: ansible_os_family != 'Windows'
 
-    - name: Check disk space on Windows
-      block:
-        - name: Check disk space on Windows
-          win_shell: Get-Volume | Select-Object -Property DriveLetter, FileSystemLabel, FileSystem, SizeRemaining, Size | ConvertTo-Csv -NoTypeInformation
-          register: windows_disk_space
-        - name: Print disk space on Windows
-          debug:
-            msg: "{{ windows_disk_space.stdout_lines }}"
-        - name: Write disk space to CSV file on Windows
-          local_action:
-            module: copy
-            content: "{{ windows_disk_space.stdout }}"
-            dest: "{{ inventory_hostname }}-disk-space.csv"
+    # --- WINDOWS SECTION ---
+    - name: Get Disk Space (Windows)
+      win_shell: Get-Volume | Select-Object DriveLetter, @{Name="Size(GB)";Expression={[math]::round($_.Size/1GB,2)}}, @{Name="Free(GB)";Expression={[math]::round($_.SizeRemaining/1GB,2)}} | Out-String
+      register: windows_disk_res
       when: ansible_os_family == 'Windows'
+
+    # --- NOTIFICATION SECTION ---
+    - name: Send Report to Discord
+      delegate_to: localhost
+      become: false
+      uri:
+        url: "https://discord.com/api/webhooks/1462362151758073888/6EwDdHGYlkqmJKHUcXVMRUz-P6syHszrGhuINaRYUlpsYrQMit_bYBw5s5qwTndS5XML"
+        method: POST
+        body_format: json
+        body:
+          username: "Ansible Disk Bot"
+          content: |
+            **Disk Usage Report for {{ inventory_hostname }}**
+            ```
+            {{ (ansible_os_family == 'Windows') | ternary(windows_disk_res.stdout, linux_disk_res.stdout) }}
+            ```
+      ignore_errors: true
