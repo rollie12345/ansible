@@ -2,39 +2,39 @@
 - name: Check Docker Updates
   hosts: all
   vars:
-    # You can also pass these via Semaphore "Environment" variables
-    discord_webhook_url: "{{ discord_webhook_url_docker_updates}}"
+    discord_webhook_url: "{{ discord_webhook_url_docker_updates }}"
   tasks:
-    - name: Get running container info
-      community.docker.docker_container_info:
-      register: docker_info
+    - name: Get info about all containers
+      community.docker.docker_host_info:
+        containers: yes
+      register: host_info
 
     - name: Check for newer images (dry-run)
       community.docker.docker_image:
-        name: "{{ item.Config.Image }}"
+        name: "{{ item.Image }}"
         source: pull
       check_mode: yes
       register: pull_results
-      loop: "{{ docker_info.containers }}"
+      loop: "{{ host_info.containers }}"
       loop_control:
-        label: "{{ item.Name }}"
+        label: "{{ item.Names[0] }}"
       ignore_errors: yes
 
     - name: Build list of updateable containers
       set_fact:
-        updates: "{{ updates | default([]) + [item.item.Name | regex_replace('^/', '')] }}"
+        updates: "{{ updates | default([]) + [item.item.Names[0] | regex_replace('^/', '')] }}"
       when: item.changed
       loop: "{{ pull_results.results }}"
       loop_control:
-        label: "{{ item.item.Name }}"
+        label: "{{ item.item.Names[0] }}"
 
     - name: Send Discord Notification
       community.general.discord:
         webhook_id: "{{ discord_webhook_url.split('/')[-2] }}"
         webhook_token: "{{ discord_webhook_url.split('/')[-1] }}"
         embeds:
-          - title: "📦 Update Available"
-            description: "New images found for the following containers:"
+          - title: "📦 Docker Update Available"
+            description: "New images found for the following containers in your LXC:"
             color: 3066993
             fields:
               - name: "Containers"
