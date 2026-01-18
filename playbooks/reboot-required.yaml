@@ -1,0 +1,63 @@
+- name: Check if servers require a reboot
+  hosts: all
+  become: true
+
+  tasks:
+    # --- DEBIAN/UBUNTU CHECK ---
+    - name: Check for reboot-required file (Debian/Ubuntu)
+      stat:
+        path: /var/run/reboot-required
+      register: debian_reboot
+      when: ansible_os_family == "Debian"
+
+    # --- REDHAT/CENTOS CHECK ---
+    - name: Check if reboot is needed (RedHat/CentOS)
+      command: needs-restarting -r
+      register: redhat_reboot
+      failed_when: false
+      changed_when: false
+      when: ansible_os_family == "RedHat"
+
+    # --- WINDOWS CHECK ---
+    - name: Check if reboot is pending (Windows)
+      win_reg_stat:
+        path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired
+      register: win_reboot
+      when: ansible_os_family == "Windows"
+
+    # --- DEFINE REBOOT STATUS ---
+    - name: Determine Reboot Status
+      set_fact:
+        needs_reboot: >-
+          {% if ansible_os_family == "Debian" and debian_reboot.stat.exists %} Yes
+          {% elif ansible_os_family == "RedHat" and redhat_reboot.rc == 1 %} Yes
+          {% elif ansible_os_family == "Windows" and win_reboot.exists %} Yes
+          {% else %} No {% endif %}
+
+    # --- SEND TO DISCORD ---
+    - name: Send Reboot Status to Discord
+      delegate_to: localhost
+      become: false
+      uri:
+        url: "https://discord.com/api/webhooks/1462364072518352988/oe0KDyOQJX8aCemHj8q32g-2ASqAgqAGCG02dKM6Go9-PjJ2fUv3cQEur6txcsMZ88kb"
+        method: POST
+        body_format: json
+        status_code: [200, 204]
+        headers:
+          User-Agent: "Ansible/2.x"
+        body:
+          username: "Update Monitor"
+          embeds:
+            - title: "Reboot Status Report"
+              description: "System check for pending updates requiring a restart."
+              color: "{{ (needs_reboot == ' Yes') | ternary(15158332, 3066993) }}" # Red if Yes, Green if No
+              fields:
+                - name: "Hostname"
+                  value: "{{ inventory_hostname }}"
+                  inline: true
+                - name: "OS"
+                  value: "{{ ansible_distribution }}"
+                  inline: true
+                - name: "Reboot Required?"
+                  value: "**{{ needs_reboot }}**"
+                  inline: false
