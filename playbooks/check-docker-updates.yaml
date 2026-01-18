@@ -30,8 +30,8 @@
 
     - name: Send Discord Notification
       community.general.discord:
-        webhook_id: "{{ discord_webhook_url.split('/')[-2] }}"
-        webhook_token: "{{ discord_webhook_url.split('/')[-1] }}"
+        webhook_id: "{{ discord_webhook_url_docker_updates.split('/')[-2] }}"
+        webhook_token: "{{ discord_webhook_url_docker_updates.split('/')[-1] }}"
         embeds:
           - title: "📦 Docker Update Available"
             description: "New images found for the following containers in your LXC:"
