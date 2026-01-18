@@ -20,7 +20,7 @@
       delegate_to: localhost
       become: false
       uri:
-        url: "https://discord.com/api/webhooks/1462362151758073888/6EwDdHGYlkqmJKHUcXVMRUz-P6syHszrGhuINaRYUlpsYrQMit_bYBw5s5qwTndS5XML"
+        url: "{{ discord_webhook_url_diskspace }}"
         method: POST
         body_format: json
         status_code: [200, 204]  # <--- This is the key fix
