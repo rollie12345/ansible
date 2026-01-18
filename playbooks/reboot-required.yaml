@@ -1,4 +1,38 @@
-- name: Send Reboot Status to Discord
+---
+- name: Check if servers require a reboot
+  hosts: all
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Check for reboot-required file (Debian/Ubuntu)
+      stat:
+        path: /var/run/reboot-required
+      register: debian_reboot
+      when: ansible_os_family == "Debian"
+
+    - name: Check if reboot is needed (RedHat/CentOS)
+      command: needs-restarting -r
+      register: redhat_reboot
+      failed_when: false
+      changed_when: false
+      when: ansible_os_family == "RedHat"
+
+    - name: Check if reboot is pending (Windows)
+      win_reg_stat:
+        path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired
+      register: win_reboot
+      when: ansible_os_family == "Windows"
+
+    - name: Determine Reboot Status
+      set_fact:
+        needs_reboot: >-
+          {% if ansible_os_family == "Debian" and debian_reboot.stat.exists %}Yes
+          {% elif ansible_os_family == "RedHat" and redhat_reboot.rc == 1 %}Yes
+          {% elif ansible_os_family == "Windows" and win_reboot.exists %}Yes
+          {% else %}No{% endif %}
+
+    - name: Send Reboot Status to Discord
       delegate_to: localhost
       become: false
       uri:
@@ -18,7 +52,7 @@
                   value: "{{ ansible_hostname }}"
                   inline: true
                 - name: "Actual IP Address"
-                  value: "{{ ansible_default_ipv4.address | default(ansible_ip_addresses[0]) | default('Unknown') }}"
+                  value: "{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) | default('Unknown') }}"
                   inline: true
                 - name: "OS Family"
                   value: "{{ ansible_os_family }}"
