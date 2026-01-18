@@ -2,7 +2,7 @@
   set_fact:
     # Gets "Landman"
     show_name: "{{ episode_item.path | dirname | dirname | basename }}"
-    # Gets "Landman.-.S02E10.-.Tragedy and Flies.WEBDL-1080p.ETHEL.mkv"
+    # Gets the full filename
     file_name: "{{ episode_item.path | basename }}"
 
 - name: Notify Discord
@@ -15,17 +15,23 @@
         New episode for **{{ show_name }}** has been uploaded! Check Genuine Drive!
         **File:** `{{ file_name }}`
     status_code: 204
-  when: discord_url != ""
+  when: discord_url is defined and discord_url != ""
 
-- name: Notify Telegram
+- name: Notify Telegram Loop
   uri:
     url: "https://api.telegram.org/bot{{ vault_tg_token }}/sendMessage"
     method: POST
     body_format: json
     body:
-      chat_id: "{{ vault_tg_chat_id }}"
+      chat_id: "{{ item }}"
       parse_mode: "Markdown"
       text: |
         New episode for *{{ show_name }}* has been uploaded! Check Genuine Drive!
         *File:* `{{ file_name }}`
-  when: vault_tg_token is defined and vault_tg_token != ""
+  # This runs the task once for each ID defined below
+  loop:
+    - "{{ vault_tg_chat_id_me }}"
+    - "{{ vault_tg_chat_id_tijnboy }}"
+  when: 
+    - vault_tg_token is defined and vault_tg_token != ""
+    - item is defined and item != ""
