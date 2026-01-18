@@ -8,17 +8,17 @@
 
 - name: Debug - Show the Webhook URL (Temporary)
   debug:
-    msg: "URL is: {{ vault_discord_url }}"
+    msg: "URL is: {{ discord_webhook_url_diskspace }}"
 
 - name: Notify Discord
   uri:
-    url: "{{ vault_discord_url }}"
+    url: "{{ discord_webhook_url_diskspace }}"
     method: POST
     body_format: json
     body:
       content: "New episode for **{{ show_name }}** has been uploaded! Check Genuine Drive!"
     status_code: 204
-  when: vault_discord_url is defined and vault_discord_url != ""
+  when: discord_webhook_url_diskspace is defined and discord_webhook_url_diskspace != ""
 
 - name: Notify Telegram
   uri:
