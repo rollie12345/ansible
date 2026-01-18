@@ -2,7 +2,7 @@
 - name: Check Docker Updates
   hosts: all
   vars:
-    discord_webhook_url: "{{ discord_webhook_url_docker_updates }}"
+    webhook_url: "{{ discord_webhook_url_docker_updates }}"
   tasks:
     - name: Get info about all containers
       community.docker.docker_host_info:
@@ -28,15 +28,22 @@
       loop_control:
         label: "{{ item.item.Names[0] }}"
 
-    - name: Send Discord Notification
+    - name: Send Discord Status Report
       community.general.discord:
-        webhook_id: "{{ discord_webhook_url_docker_updates.split('/')[-2] }}"
-        webhook_token: "{{ discord_webhook_url_docker_updates.split('/')[-1] }}"
+        webhook_id: "{{ webhook_url.split('/')[-2] }}"
+        webhook_token: "{{ webhook_url.split('/')[-1] }}"
         embeds:
-          - title: "📦 Docker Update Available"
-            description: "New images found for the following containers in your LXC:"
-            color: 3066993
+          - title: "🐳 Docker Update Report"
+            # Logic: Change color to Red if updates exist, Green if not.
+            color: "{{ (updates | default([]) | length > 0) | ternary(15158332, 3066993) }}"
+            description: "Update check completed for host: **{{ inventory_hostname }}**"
             fields:
-              - name: "Containers"
-                value: "{{ updates | join('\n') }}"
-      when: updates is defined and updates | length > 0
+              - name: "Status"
+                value: >
+                  {% if updates is defined and updates | length > 0 %}
+                  ⚠️ Updates found for:
+                  {{ updates | join('\n') }}
+                  {% else %}
+                  ✅ All containers are up to date!
+                  {% endif %}
+      # Note: 'when' condition is removed so it ALWAYS sends.
