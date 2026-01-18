@@ -15,7 +15,7 @@
         paths: "{{ library_path }}"
         recurse: yes
         patterns: ['*.mkv', ['*.mp4'], ['*.avi']]
-        age: -72h
+        age: -24h
       register: new_files
 
     - name: Process found episodes
