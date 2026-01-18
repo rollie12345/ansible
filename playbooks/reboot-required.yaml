@@ -36,7 +36,8 @@
       delegate_to: localhost
       become: false
       uri:
-        url: "https://discord.com/api/webhooks/1462364072518352988/oe0KDyOQJX8aCemHj8q32g-2ASqAgqAGCG02dKM6Go9-PjJ2fUv3cQEur6txcsMZ88kb"
+        # Use the variable here
+        url: "{{ discord_webhook_url_reboot_status }}"
         method: POST
         body_format: json
         status_code: [200, 204]
